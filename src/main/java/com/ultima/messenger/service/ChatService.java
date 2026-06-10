@@ -1,0 +1,178 @@
+package com.ultima.messenger.service;
+
+import com.ultima.messenger.model.dto.chat.ChatResponse;
+import com.ultima.messenger.model.dto.chat.CreateChatRequest;
+import com.ultima.messenger.model.dto.chat.CreateChatResponse;
+import com.ultima.messenger.model.dto.user.PartisipantResponse;
+import com.ultima.messenger.model.entity.*;
+import com.ultima.messenger.model.enums.ChatType;
+import com.ultima.messenger.model.enums.UserChatRole;
+import com.ultima.messenger.repository.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class ChatService {
+
+    private final ChatRepository chatRepository;
+    private final ChatParticipantRepository chatParticipantRepository;
+    private final MessageRepository messageRepository;
+    private final UserRepository userRepository;
+
+    public CreateChatResponse createChat(CreateChatRequest request, UserEntity currentUser) {
+        List<String> participantLogins = request.getParticipantLogins();
+
+        Set<String> uniqueLogins = new HashSet<>(participantLogins);
+        if (uniqueLogins.size() != participantLogins.size()) {
+            throw new IllegalArgumentException("Duplicate participants are not allowed");
+        }
+
+        if (uniqueLogins.size() == 1 && uniqueLogins.contains(currentUser.getLogin())) {
+            throw new IllegalArgumentException("Cannot create a chat with yourself");
+        }
+
+        List<UserEntity> participants = userRepository.findAllByLoginIn(participantLogins);
+        if (participants.size() != participantLogins.size()) {
+            List<String> foundLogins = participants.stream().map(UserEntity::getLogin).toList();
+            List<String> notFound = participantLogins.stream()
+                    .filter(l -> !foundLogins.contains(l)).toList();
+            throw new IllegalArgumentException("Users not found: " + notFound);
+        }
+
+        if (request.getType() == ChatType.GROUP
+                && (request.getTitle() == null || request.getTitle().isBlank())) {
+            throw new IllegalArgumentException("Group chat requires a title");
+        }
+
+        if (request.getType() == ChatType.PRIVATE) {
+            List<UserEntity> others = participants.stream()
+                    .filter(p -> !p.getLogin().equals(currentUser.getLogin()))
+                    .toList();
+
+            if (others.size() != 1) {
+                throw new IllegalArgumentException("Private chat must have exactly one other participant");
+            }
+
+            UserEntity otherUser = others.getFirst();
+
+            if (chatParticipantRepository.existsChatBetweenUsersWithType(
+                    currentUser, otherUser, ChatType.PRIVATE)) {
+                throw new IllegalArgumentException(
+                        "Private chat with user '" + otherUser.getLogin() + "' already exists");
+            }
+        }
+
+        ChatEntity chat = new ChatEntity();
+        chat.setType(request.getType());
+        chat.setTitle(request.getTitle());
+        chatRepository.save(chat);
+
+        saveParticipant(chat, currentUser, UserChatRole.ADMIN);
+
+        for (UserEntity participant : participants) {
+            if (!participant.getLogin().equals(currentUser.getLogin())) {
+                saveParticipant(chat, participant, UserChatRole.MEMBER);
+            }
+        }
+
+        return CreateChatResponse.builder()
+                .message("Chat created successfully")
+                .chatId(chat.getId())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChatResponse> getChats(UserEntity currentUser) {
+
+        List<ChatParticipantEntity> participations =
+                chatParticipantRepository.findByUser(currentUser);
+
+        return participations.stream()
+                .map(p -> {
+
+                    ChatEntity chat = p.getChat();
+
+                    Optional<MessageEntity> lastMsg =
+                            messageRepository.findTopByChatOrderByCreatedAtDesc(chat);
+
+                    String lastMessagePreview = lastMsg.map(msg -> {
+                        String content = msg.getContent();
+                        if (content != null && !content.isBlank()) {
+                            return content;
+                        }
+                        if (msg.getAttachments() != null && !msg.getAttachments().isEmpty()) {
+                            return "Вложение";
+                        }
+                        return null;
+                    }).orElse(null);
+
+                    // можно использовать позже для UI
+                    UserEntity lastSender = lastMsg.map(MessageEntity::getSender).orElse(null);
+
+                    String lastSenderDisplay = lastSender != null ? lastSender.getDisplayName() : null;
+
+                    return ChatResponse.builder()
+                            .chatId(chat.getId())
+                            .type(chat.getType().name())
+                            .title(chat.getTitle())
+                            .lastMessage(lastMessagePreview)
+                            .lastMessageTime(lastMsg.map(MessageEntity::getCreatedAt).orElse(null))
+                            .lastSenderDisplayName(lastSenderDisplay)
+                            .lastSenderAvatarUrl(null)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PartisipantResponse> getParticipants(Long chatId, UserEntity currentUser) {
+
+        ChatEntity chat = getChatOrThrow(chatId);
+        checkAccess(chat, currentUser);
+
+        return chatParticipantRepository.findByChat(chat).stream()
+                .map(p -> {
+
+                    UserEntity user = p.getUser();
+
+                    return PartisipantResponse.builder()
+                            .uuid(user.getUuid())
+                            .login(user.getLogin())
+                            .displayName(user.getDisplayName())
+                            .avatarUrl(null)
+                            .email(user.getUserEmail())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    ChatEntity getChatOrThrow(Long chatId) {
+        return chatRepository.findById(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("Chat not found: " + chatId));
+    }
+
+    void checkAccess(ChatEntity chat, UserEntity user) {
+        if (!chatParticipantRepository.existsByChatAndUser(chat, user)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "You are not a participant of this chat");
+        }
+    }
+
+    private void saveParticipant(ChatEntity chat, UserEntity user, UserChatRole role) {
+        ChatParticipantEntity cp = new ChatParticipantEntity();
+        cp.setChat(chat);
+        cp.setUser(user);
+        cp.setRole(role);
+        cp.setJoinedAt(LocalDateTime.now());
+        chatParticipantRepository.save(cp);
+    }
+}

@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: messenger
+  servlet:
+    multipart:
+      max-file-size: 300MB
+      max-request-size: 300MB
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/messenger}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_EXPIRATION:900000}
+  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+
+messenger:
+  admin:
+    bootstrap-login: ${ADMIN_LOGIN:}
+    bootstrap-password: ${ADMIN_PASSWORD:}
+    bootstrap-display-name: ${ADMIN_DISPLAY_NAME:Administrator}
+
+logging:
+  level:
+    org.springframework: INFO
+    com.ultima.messenger: DEBUG
+
+server:
+  port: 8080
+  forward-headers-strategy: framework
