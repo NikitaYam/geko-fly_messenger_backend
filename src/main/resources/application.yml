@@ -1,4 +1,4 @@
-spring:
+﻿spring:
   application:
     name: messenger
   servlet:
@@ -39,7 +39,7 @@ messenger:
 logging:
   level:
     org.springframework: INFO
-    com.ultima.messenger: DEBUG
+    com.geckofly.messenger: DEBUG
 
 server:
   port: 8080
