@@ -1,5 +1,6 @@
 package com.geckofly.messenger.model.dto.chat;
 
+import com.geckofly.messenger.model.dto.user.UserSummary;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,4 +20,5 @@ public class ChatResponse {
     private LocalDateTime lastMessageTime;
     private String lastSenderDisplayName;
     private String lastSenderAvatarUrl;
+    private UserSummary otherParticipant;
 }

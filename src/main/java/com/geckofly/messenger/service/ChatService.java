@@ -20,6 +20,8 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.geckofly.messenger.model.dto.user.UserSummary;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -92,7 +94,7 @@ public class ChatService {
                 .build();
     }
 
-    @Transactional(readOnly = true)
+        @Transactional(readOnly = true)
     public List<ChatResponse> getChats(UserEntity currentUser) {
 
         List<ChatParticipantEntity> participations =
@@ -117,10 +119,12 @@ public class ChatService {
                         return null;
                     }).orElse(null);
 
-                    // можно использовать позже для UI
                     UserEntity lastSender = lastMsg.map(MessageEntity::getSender).orElse(null);
-
                     String lastSenderDisplay = lastSender != null ? lastSender.getDisplayName() : null;
+
+                    UserSummary otherParticipant = chat.getType() == ChatType.PRIVATE
+                            ? findOtherParticipant(chat, currentUser)
+                            : null;
 
                     return ChatResponse.builder()
                             .uuid(chat.getUuid())
@@ -130,9 +134,24 @@ public class ChatService {
                             .lastMessageTime(lastMsg.map(MessageEntity::getCreatedAt).orElse(null))
                             .lastSenderDisplayName(lastSenderDisplay)
                             .lastSenderAvatarUrl(null)
+                            .otherParticipant(otherParticipant)
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    private UserSummary findOtherParticipant(ChatEntity chat, UserEntity currentUser) {
+        return chatParticipantRepository.findByChat(chat).stream()
+                .map(ChatParticipantEntity::getUser)
+                .filter(u -> !u.getId().equals(currentUser.getId()))
+                .findFirst()
+                .map(u -> UserSummary.builder()
+                        .uuid(u.getUuid())
+                        .login(u.getLogin())
+                        .displayName(u.getDisplayName())
+                        .avatarUrl(u.getAvatarUrl())
+                        .build())
+                .orElse(null);
     }
 
     @Transactional(readOnly = true)
