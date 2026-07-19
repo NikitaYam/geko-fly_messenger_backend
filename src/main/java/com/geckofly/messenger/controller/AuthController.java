@@ -1,7 +1,6 @@
 package com.geckofly.messenger.controller;
 
 import com.geckofly.messenger.model.dto.auth.AuthResponse;
-import com.geckofly.messenger.model.dto.auth.LoginEmailRequest;
 import com.geckofly.messenger.model.dto.auth.LoginRequest;
 import com.geckofly.messenger.model.dto.auth.LogoutRequest;
 import com.geckofly.messenger.model.dto.auth.RefreshTokenRequest;
@@ -14,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -21,15 +22,9 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @PostMapping("/loginByEmail")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginEmailRequest request) {
-        AuthResponse response = authService.loginByEmail(request);
-        return ResponseEntity.ok(response);
-    }
-
     @PostMapping("/loginByLogin")
-    public ResponseEntity<AuthResponse> loginByLogin(@Valid @RequestBody LoginRequest request) {
-        AuthResponse response = authService.loginByLogin(request);
+    public ResponseEntity<AuthResponse> loginByLogin(@Valid @RequestBody LoginRequest request, HttpServletRequest httpServletRequest) {
+        AuthResponse response = authService.loginByLogin(request, httpServletRequest.getRemoteAddr());
         return ResponseEntity.ok(response);
     }
 

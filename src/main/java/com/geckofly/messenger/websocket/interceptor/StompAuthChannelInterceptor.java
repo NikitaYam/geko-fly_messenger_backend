@@ -76,7 +76,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             UserEntity user = userRepository.findByLogin(login)
                     .orElseThrow(() -> new BadCredentialsException("User not found: " + login));
 
-            if (!jwtService.validateToken(token, user)) {
+            if (!jwtService.validateAccessToken(token, user)) {
                 throw new BadCredentialsException("Invalid or expired JWT token");
             }
 

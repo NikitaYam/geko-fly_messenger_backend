@@ -48,7 +48,7 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
             try {
                 String login = jwtService.extractUsername(token);
                 UserEntity user = userRepository.findByLogin(login).orElse(null);
-                if (user != null && jwtService.validateToken(token, user)) {
+                if (user != null && jwtService.validateAccessToken(token, user)) {
                     attributes.put("user", user);
                     log.debug("WebSocket handshake: user={} authenticated from HTTP header", login);
                 }

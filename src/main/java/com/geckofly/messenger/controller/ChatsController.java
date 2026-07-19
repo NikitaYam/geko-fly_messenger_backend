@@ -4,7 +4,7 @@ import com.geckofly.messenger.model.dto.chat.ChatResponse;
 import com.geckofly.messenger.model.dto.chat.CreateChatRequest;
 import com.geckofly.messenger.model.dto.chat.CreateChatResponse;
 import com.geckofly.messenger.model.dto.message.MessageResponse;
-import com.geckofly.messenger.model.dto.user.PartisipantResponse;
+import com.geckofly.messenger.model.dto.user.ParticipantResponse;
 import com.geckofly.messenger.model.entity.UserEntity;
 import com.geckofly.messenger.service.ChatService;
 import com.geckofly.messenger.service.MessageService;
@@ -45,7 +45,7 @@ public class ChatsController {
     }
 
     @GetMapping("/{chatUuid}/participants")
-    public ResponseEntity<List<PartisipantResponse>> getParticipants(
+    public ResponseEntity<List<ParticipantResponse>> getParticipants(
             @PathVariable UUID chatUuid,
             @AuthenticationPrincipal UserEntity currentUser) {
         return ResponseEntity.ok(chatService.getParticipants(chatUuid, currentUser));

@@ -51,9 +51,6 @@ public class UserEntity extends BaseEntity implements UserDetails {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    @Column(name = "public_key", nullable = true)
-    private String publicKey;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     private UserRole role = UserRole.USER;

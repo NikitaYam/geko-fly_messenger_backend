@@ -16,8 +16,13 @@ public class RefreshTokenEntity extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 512)
-    private String token;
+    /**
+     * SHA-256 (hex, 64 символа) от refresh-токена.
+     * Открытое значение токена на сервере не хранится: утечка БД
+     * не даёт готовых сессий (С2). Отзыв токена = удаление строки.
+     */
+    @Column(name = "token_hash", nullable = false, unique = true, length = 64)
+    private String tokenHash;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -25,7 +30,4 @@ public class RefreshTokenEntity extends BaseEntity {
 
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
-
-    @Column(name = "revoked", nullable = false)
-    private boolean revoked = false;
 }

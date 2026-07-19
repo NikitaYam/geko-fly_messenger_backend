@@ -21,13 +21,13 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: local
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/messenger
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
-      ADMIN_LOGIN: ${ADMIN_LOGIN:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required - define it in .env}
+      ADMIN_LOGIN: ${ADMIN_LOGIN:?ADMIN_LOGIN is required - define it in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required - define it in .env}
       ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Administrator}
     volumes:
       - app_storage:/app/storage

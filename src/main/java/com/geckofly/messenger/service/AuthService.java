@@ -1,7 +1,6 @@
 package com.geckofly.messenger.service;
 
 import com.geckofly.messenger.model.dto.auth.AuthResponse;
-import com.geckofly.messenger.model.dto.auth.LoginEmailRequest;
 import com.geckofly.messenger.model.dto.auth.LoginRequest;
 import com.geckofly.messenger.model.dto.auth.LogoutRequest;
 import com.geckofly.messenger.model.dto.auth.RefreshTokenRequest;
@@ -10,58 +9,106 @@ import com.geckofly.messenger.model.entity.UserEntity;
 import com.geckofly.messenger.repository.RefreshTokenRepository;
 import com.geckofly.messenger.repository.UserRepository;
 import com.geckofly.messenger.security.JwtService;
-import org.springframework.transaction.annotation.Transactional;
+import com.geckofly.messenger.security.LoginAttemptService;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
-
-import java.time.LocalDateTime;
-
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.util.HexFormat;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final LoginAttemptService loginAttemptService;
 
     @Transactional
-    public AuthResponse loginByEmail(LoginEmailRequest request) {
-        UserEntity user = userRepository.findByUserEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
+    public AuthResponse loginByLogin(LoginRequest request, String clientIp) {
+        String rateKey = request.getLogin() + "|" + clientIp;
+        loginAttemptService.checkAllowed(rateKey);
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(user.getLogin(), request.getPassword())
-        );
-
-        return generateTokens(user, "Login successful");
-    }
-
-    @Transactional
-    public AuthResponse loginByLogin(LoginRequest request) {
         UserEntity user = userRepository.findByLogin(request.getLogin())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid login or password"));
+                .orElseThrow(() -> {
+                    loginAttemptService.onFailure(rateKey);
+                    return new BadCredentialsException("Invalid login or password");
+                });
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(user.getLogin(), request.getPassword())
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(user.getLogin(), request.getPassword())
+            );
+        } catch (BadCredentialsException e) {
+            loginAttemptService.onFailure(rateKey);
+            throw e;
+        }
 
-        return generateTokens(user, "Login successful");
+        loginAttemptService.onSuccess(rateKey);
+        return issueTokens(user, "Login successful");
     }
 
-    private AuthResponse generateTokens(UserEntity user, String message) {
+    @Transactional
+    public AuthResponse refresh(RefreshTokenRequest request) {
+        String presented = request.getRefreshToken();
+
+        // 1. Криптографическая проверка: подпись, срок, тип REFRESH.
+        String login;
+        try {
+            login = jwtService.validateRefreshTokenAndGetUsername(presented);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new BadCredentialsException("Invalid refresh token");
+        }
+
+        // 2. Токен должен существовать в БД (по хэшу). Если подпись валидна,
+        //    а записи нет — токен уже был ротирован: либо гонка двух запросов,
+        //    либо краденая копия. Логируем — это сигнал.
+        RefreshTokenEntity stored = refreshTokenRepository.findByTokenHash(sha256(presented))
+                .orElseThrow(() -> {
+                    log.warn("Refresh token reuse detected for user '{}' — possible theft or race", login);
+                    return new BadCredentialsException("Refresh token is no longer valid");
+                });
+
+        if (stored.getExpiresAt().isBefore(LocalDateTime.now())) {
+            refreshTokenRepository.delete(stored);
+            throw new BadCredentialsException("Refresh token expired");
+        }
+
+        // 3. Ротация: использованный токен погашен, выдаётся новая пара.
+        UserEntity user = stored.getUser();
+        refreshTokenRepository.delete(stored);
+        return issueTokens(user, "Refresh successful");
+    }
+
+    /** Идемпотентный выход: неизвестный токен — не ошибка, сессии уже нет. */
+    @Transactional
+    public void logout(LogoutRequest request) {
+        refreshTokenRepository.findByTokenHash(sha256(request.getRefreshToken()))
+                .ifPresent(refreshTokenRepository::delete);
+    }
+
+    private AuthResponse issueTokens(UserEntity user, String message) {
         String accessToken = jwtService.generateAccessToken(user);
         String rawRefreshToken = jwtService.generateRefreshToken(user);
 
-        refreshTokenRepository.deleteByUser(user);
+        // Гигиена вместо тотальной зачистки: удаляем только истёкшие токены.
+        // Живые сессии других устройств (телефон + PWA) продолжают работать.
+        refreshTokenRepository.deleteExpiredByUser(user, LocalDateTime.now());
 
         RefreshTokenEntity refreshToken = new RefreshTokenEntity();
-        refreshToken.setToken(rawRefreshToken);
+        refreshToken.setTokenHash(sha256(rawRefreshToken));
         refreshToken.setUser(user);
         refreshToken.setExpiresAt(jwtService.getRefreshTokenExpiry());
         refreshTokenRepository.save(refreshToken);
@@ -73,32 +120,13 @@ public class AuthService {
                 .build();
     }
 
-    @Transactional
-    public AuthResponse refresh(RefreshTokenRequest request) {
-        String refreshToken = request.getRefreshToken();
-        RefreshTokenEntity token = refreshTokenRepository.findByToken(refreshToken)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
-
-        if (token.isRevoked()) {
-            throw new IllegalArgumentException("Refresh token has been revoked");
+    private static String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
         }
-        if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("Refresh token expired");
-        }
-
-        String accessToken = jwtService.generateAccessToken(token.getUser());
-        return AuthResponse.builder()
-                .message("Refresh token successful")
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .build();
-    }
-
-    public void logout(LogoutRequest request) {
-        String refreshToken = request.getRefreshToken();
-        RefreshTokenEntity token = refreshTokenRepository.findByToken(refreshToken)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
-
-        refreshTokenRepository.delete(token);
     }
 }

@@ -2,6 +2,8 @@ package com.geckofly.messenger.config;
 
 import com.geckofly.messenger.security.CustomUserDetailsService;
 import com.geckofly.messenger.security.JwtAuthenticationFilter;
+import com.geckofly.messenger.security.RestAuthenticationEntryPoint;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,6 +30,7 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -54,12 +57,14 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
+            .exceptionHandling(ex ->
+                ex.authenticationEntryPoint(restAuthenticationEntryPoint)
+            )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/api/files/**", "/api/uploads/avatars/**").permitAll()
                 .requestMatchers(
-                        "/api/auth/loginByEmail",
                         "/api/auth/loginByLogin",
                         "/api/auth/refresh",
                         "/api/auth/logout",

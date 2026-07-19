@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.geckofly.messenger.mapper.UserMapper;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -18,17 +20,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserDeletionService userDeletionService;
-
-    private UserResponse toResponse(UserEntity user) {
-        return UserResponse.builder()
-                .uuid(user.getUuid())
-                .login(user.getLogin())
-                .displayName(user.getDisplayName())
-                .email(user.getUserEmail())
-                .role(user.getRole())
-                .avatarUrl(user.getAvatarUrl())
-                .build();
-    }
+    private final UserMapper userMapper;
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
@@ -36,7 +28,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserResponse getCurrentUser(UserEntity currentUser) {
-        return toResponse(currentUser);
+        return userMapper.toResponse(currentUser);
     }
 
     @Transactional(readOnly = true)
@@ -44,7 +36,7 @@ public class UserService {
         UserEntity user = userRepository.findByLogin(login)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "User not found: " + login));
-        return toResponse(user);
+        return userMapper.toResponse(user);
     }
 
     @Transactional
@@ -79,7 +71,7 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No fields to update");
         }
 
-        return toResponse(userRepository.save(currentUser));
+        return userMapper.toResponse(userRepository.save(currentUser));
     }
 
     @Transactional

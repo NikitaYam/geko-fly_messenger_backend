@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.geckofly.messenger.mapper.UserMapper;
+
 @Service
 @RequiredArgsConstructor
 public class AdminUserService {
@@ -23,11 +25,12 @@ public class AdminUserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserDeletionService userDeletionService;
+    private final UserMapper userMapper;
 
     @Transactional(readOnly = true)
     public List<UserResponse> listUsers() {
         return userRepository.findAll().stream()
-                .map(this::toResponse)
+                .map(userMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
@@ -50,7 +53,7 @@ public class AdminUserService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setRole(roleToAssign);
 
-        return toResponse(userRepository.save(user));
+        return userMapper.toResponse(userRepository.save(user));
     }
 
     @Transactional
@@ -76,7 +79,7 @@ public class AdminUserService {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role must be USER or ADMIN");
                 }
                 user.setRole(newRole);
-                return toResponse(userRepository.save(user));
+                return userMapper.toResponse(userRepository.save(user));
             }
 
     @Transactional
@@ -114,17 +117,6 @@ public class AdminUserService {
             return UserRole.ADMIN;
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid role");
-    }
-
-    private UserResponse toResponse(UserEntity user) {
-        return UserResponse.builder()
-                .uuid(user.getUuid())
-                .login(user.getLogin())
-                .displayName(user.getDisplayName())
-                .email(user.getUserEmail())
-                .role(user.getRole())
-                .avatarUrl(user.getAvatarUrl())
-                .build();
     }
 
     private static String blankToNull(String value) {

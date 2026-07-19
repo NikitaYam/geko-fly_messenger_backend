@@ -39,7 +39,7 @@ messenger:
 logging:
   level:
     org.springframework: INFO
-    com.geckofly.messenger: DEBUG
+    com.geckofly.messenger: INFO
 
 server:
   port: 8080

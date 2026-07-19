@@ -3,7 +3,7 @@ package com.geckofly.messenger.service;
 import com.geckofly.messenger.model.dto.chat.ChatResponse;
 import com.geckofly.messenger.model.dto.chat.CreateChatRequest;
 import com.geckofly.messenger.model.dto.chat.CreateChatResponse;
-import com.geckofly.messenger.model.dto.user.PartisipantResponse;
+import com.geckofly.messenger.model.dto.user.ParticipantResponse;
 import com.geckofly.messenger.model.entity.*;
 import com.geckofly.messenger.model.enums.ChatType;
 import com.geckofly.messenger.model.enums.UserChatRole;
@@ -14,13 +14,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.UUID;
-
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import com.geckofly.messenger.model.dto.user.UserSummary;
+
+import com.geckofly.messenger.mapper.UserMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +31,7 @@ public class ChatService {
     private final ChatParticipantRepository chatParticipantRepository;
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final UserMapper userMapper;
 
     public CreateChatResponse createChat(CreateChatRequest request, UserEntity currentUser) {
         List<String> participantLogins = request.getParticipantLogins();
@@ -140,39 +141,22 @@ public class ChatService {
                 .collect(Collectors.toList());
     }
 
-    private UserSummary findOtherParticipant(ChatEntity chat, UserEntity currentUser) {
+        private UserSummary findOtherParticipant(ChatEntity chat, UserEntity currentUser) {
         return chatParticipantRepository.findByChat(chat).stream()
                 .map(ChatParticipantEntity::getUser)
                 .filter(u -> !u.getId().equals(currentUser.getId()))
                 .findFirst()
-                .map(u -> UserSummary.builder()
-                        .uuid(u.getUuid())
-                        .login(u.getLogin())
-                        .displayName(u.getDisplayName())
-                        .avatarUrl(u.getAvatarUrl())
-                        .build())
+                .map(userMapper::toSummary)
                 .orElse(null);
     }
 
-    @Transactional(readOnly = true)
-    public List<PartisipantResponse> getParticipants(UUID chatUuid, UserEntity currentUser) {
-
+        @Transactional(readOnly = true)
+    public List<ParticipantResponse> getParticipants(UUID chatUuid, UserEntity currentUser) {
         ChatEntity chat = getChatByUuidOrThrow(chatUuid);
         checkAccess(chat, currentUser);
 
         return chatParticipantRepository.findByChat(chat).stream()
-                .map(p -> {
-
-                    UserEntity user = p.getUser();
-
-                    return PartisipantResponse.builder()
-                            .uuid(user.getUuid())
-                            .login(user.getLogin())
-                            .displayName(user.getDisplayName())
-                            .avatarUrl(null)
-                            .email(user.getUserEmail())
-                            .build();
-                })
+                .map(p -> userMapper.toParticipantResponse(p.getUser()))
                 .collect(Collectors.toList());
     }
 

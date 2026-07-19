@@ -14,6 +14,7 @@ import com.geckofly.messenger.model.enums.MessageType;
 import com.geckofly.messenger.repository.ChatParticipantRepository;
 import com.geckofly.messenger.repository.MessageRepository;
 import com.geckofly.messenger.websocket.dto.ChatMessageResponse;
+import com.geckofly.messenger.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +36,7 @@ public class MessageService {
     private final ChatService chatService;
     private final ChatParticipantRepository chatParticipantRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final UserMapper userMapper;
 
     public SendMessageResponse sendMessage(SendMessageRequest request, UserEntity currentUser) {
         MessageEntity saved = saveMessage(
@@ -48,7 +50,7 @@ public class MessageService {
 
         return SendMessageResponse.builder()
                 .message("Message sent successfully")
-                .messageUuid(saved.getUuid())  //  TODO: уточнить, что это поле в MessageEntity
+                .messageUuid(saved.getUuid())
                 .chatUuid(request.getChatUuid())
                 .build();
     }
@@ -106,7 +108,7 @@ public class MessageService {
                     return MessageResponse.builder()
                             .uuid(m.getUuid())
                             .chatUuid(chat.getUuid())
-                            .sender(toUserSummary(sender))
+                            .sender(userMapper.toSummary(sender))
                             .content(m.getContent())
                             .type(m.getType().name())
                             .createdAt(m.getCreatedAt())
@@ -121,7 +123,7 @@ public class MessageService {
         UserEntity sender = saved.getSender();
         List<ChatParticipantEntity> participants = chatParticipantRepository.findByChat(saved.getChat());
 
-        UserSummary senderSummary = toUserSummary(sender);
+        UserSummary senderSummary = userMapper.toSummary(sender);
 
         for (ChatParticipantEntity participant : participants) {
             ChatMessageResponse response = ChatMessageResponse.builder()
@@ -142,15 +144,6 @@ public class MessageService {
                     response
             );
         }
-    }
-
-    private UserSummary toUserSummary(UserEntity user) {
-        return UserSummary.builder()
-                .uuid(user.getUuid())
-                .login(user.getLogin())
-                .displayName(user.getDisplayName())
-                .avatarUrl(null)
-                .build();
     }
 
     private AttachmentDto toAttachmentDto(AttachmentEntity attachment) {
