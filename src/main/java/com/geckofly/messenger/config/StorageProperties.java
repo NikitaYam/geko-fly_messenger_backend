@@ -17,12 +17,16 @@ import org.springframework.util.unit.DataSize;
 @ConfigurationProperties(prefix = "messenger.storage")
 public class StorageProperties {
 
-    /** Корень хранилища. Внутри: files/, avatars/, tmp/. Должен совпадать с multipart.location в yml. */
+    /** Корень хранилища. Внутри: files/, avatars/, tmp/. */
     private String baseDir = "storage";
 
     /**
-     * Неприкосновенный резерв диска. Загрузка отклоняется (507), если свободного
-     * места меньше — чтобы переполнение не убило Postgres и систему.
+     * Неприкосновенный резерв диска. Загрузка отклоняется (507), если ПОСЛЕ приёма
+     * файла свободного места станет меньше — чтобы переполнение не убило Postgres.
+     * 1 ГБ: диск VPS всего 15 ГБ, 10 ГБ блокировали бы загрузки уже при 33% занятости.
      */
-    private DataSize minFreeSpace = DataSize.ofGigabytes(10);
+    private DataSize minFreeSpace = DataSize.ofGigabytes(1);
+
+    /** Максимальный размер одного файла. Используется в MultipartConfig. */
+    private DataSize maxFileSize = DataSize.ofGigabytes(5);
 }

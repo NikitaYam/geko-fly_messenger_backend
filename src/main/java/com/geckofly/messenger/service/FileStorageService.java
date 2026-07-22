@@ -85,7 +85,7 @@ public class FileStorageService {
     }
 
     private StoredFile save(MultipartFile file, String original, String ext, Path dir, String urlPrefix) {
-        ensureFreeSpace();
+        ensureFreeSpace(file.getSize());
         String storedName = UUID.randomUUID() + "." + ext;
         Path target = dir.resolve(storedName);
         try {
@@ -117,10 +117,16 @@ public class FileStorageService {
         return target;
     }
 
-    private void ensureFreeSpace() {
+    /**
+     * Отказ только если ПОСЛЕ приёма файла свободного места станет меньше резерва.
+     * Проверка учитывает размер входящего файла — иначе крошечный аватар
+     * отклонялся бы наравне с 5-гигабайтным, стоит свободному месту опуститься
+     * ниже резерва (ровно этот баг: диск 15 ГБ, 7 ГБ свободно, резерв был 10 ГБ).
+     */
+    private void ensureFreeSpace(long incomingSize) {
         try {
             long usable = Files.getFileStore(filesDir).getUsableSpace();
-            if (usable < props.getMinFreeSpace().toBytes()) {
+            if (usable - incomingSize < props.getMinFreeSpace().toBytes()) {
                 throw new ResponseStatusException(HttpStatus.INSUFFICIENT_STORAGE,
                         "Not enough free space on server");
             }
