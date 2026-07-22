@@ -3,8 +3,13 @@
     name: messenger
   servlet:
     multipart:
-      max-file-size: 300MB
-      max-request-size: 300MB
+      max-file-size: 5GB
+      max-request-size: 5GB
+      # Входящий файл пишется на диск в тот же том, что storage/files
+      # (атомарный rename при сохранении). file-size-threshold: 0 —
+      # никогда не буферизовать в память (иначе 5 ГБ убьют heap).
+      location: storage/tmp
+      file-size-threshold: 0B
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/messenger}
@@ -35,6 +40,11 @@ messenger:
     bootstrap-login: ${ADMIN_LOGIN:}
     bootstrap-password: ${ADMIN_PASSWORD:}
     bootstrap-display-name: ${ADMIN_DISPLAY_NAME:Administrator}
+  storage:
+    base-dir: storage
+    # Резерв диска: ниже этого порога загрузки отклоняются (507),
+    # чтобы переполнение не уронило Postgres.
+    min-free-space: 10GB
 
 logging:
   level:

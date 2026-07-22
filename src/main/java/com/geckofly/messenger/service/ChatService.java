@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -177,7 +177,7 @@ public class ChatService {
         cp.setChat(chat);
         cp.setUser(user);
         cp.setRole(role);
-        cp.setJoinedAt(LocalDateTime.now());
+        cp.setJoinedAt(Instant.now());
         chatParticipantRepository.save(cp);
     }
 }

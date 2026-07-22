@@ -63,7 +63,9 @@ public class SecurityConfig {
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/api/files/**", "/api/uploads/avatars/**").permitAll()
+                // С6: скачивание файлов-вложений теперь требует аутентификации.
+                // Аватары остаются публичными осознанно.
+                .requestMatchers(HttpMethod.GET, "/api/uploads/avatars/**").permitAll()
                 .requestMatchers(
                         "/api/auth/loginByLogin",
                         "/api/auth/refresh",

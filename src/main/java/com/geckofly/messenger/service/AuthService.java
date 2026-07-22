@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HexFormat;
 
 @Slf4j
@@ -81,7 +81,7 @@ public class AuthService {
                     return new BadCredentialsException("Refresh token is no longer valid");
                 });
 
-        if (stored.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (stored.getExpiresAt().isBefore(Instant.now())) {
             refreshTokenRepository.delete(stored);
             throw new BadCredentialsException("Refresh token expired");
         }
@@ -105,7 +105,7 @@ public class AuthService {
 
         // Гигиена вместо тотальной зачистки: удаляем только истёкшие токены.
         // Живые сессии других устройств (телефон + PWA) продолжают работать.
-        refreshTokenRepository.deleteExpiredByUser(user, LocalDateTime.now());
+        refreshTokenRepository.deleteExpiredByUser(user, Instant.now());
 
         RefreshTokenEntity refreshToken = new RefreshTokenEntity();
         refreshToken.setTokenHash(sha256(rawRefreshToken));

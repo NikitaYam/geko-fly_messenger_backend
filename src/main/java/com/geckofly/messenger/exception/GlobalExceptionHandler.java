@@ -7,9 +7,10 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,6 +42,15 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(buildResponse(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                "Payload too large",
+                "File exceeds the maximum allowed size"
+        ));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(buildResponse(
@@ -65,16 +75,17 @@ public class GlobalExceptionHandler {
 
         log.error("Unhandled exception at request processing", ex);
 
+        // Наружу — обезличенно: детали (SQL, пути, стектрейс) остаются в логе выше (Мл2).
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal server error",
-                ex.getMessage()
+                "Internal server error"
         ));
     }
 
     private Map<String, Object> buildResponse(int status, String error, String message) {
         Map<String, Object> response = new HashMap<>();
-        response.put("timestamp", LocalDateTime.now().toString());
+        response.put("timestamp", Instant.now().toString());
         response.put("status", status);
         response.put("error", error);
         response.put("message", message);

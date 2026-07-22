@@ -8,7 +8,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Component
 public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
@@ -22,6 +22,6 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write("""
                 {"timestamp":"%s","status":401,"error":"Unauthorized","message":"Authentication required"}"""
-                .formatted(LocalDateTime.now()));
+                .formatted(Instant.now()));
     }
 }

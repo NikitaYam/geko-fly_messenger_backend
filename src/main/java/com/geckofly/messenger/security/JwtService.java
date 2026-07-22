@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Date;
 import java.util.function.Function;
 
@@ -40,8 +40,8 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
-    public LocalDateTime getRefreshTokenExpiry() {
-        return LocalDateTime.now().plusSeconds(refreshTokenExpiration / 1000);
+    public Instant getRefreshTokenExpiry() {
+        return Instant.now().plusMillis(refreshTokenExpiration);
     }
 
     /**

@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -17,7 +17,7 @@ public class ChatResponse {
     private String type;
     private String title;
     private String lastMessage;
-    private LocalDateTime lastMessageTime;
+    private Instant lastMessageTime;
     private String lastSenderDisplayName;
     private String lastSenderAvatarUrl;
     private UserSummary otherParticipant;

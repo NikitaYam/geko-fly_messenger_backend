@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity, Long> {
@@ -22,5 +22,5 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity
     /** Гигиена при логине: убрать только истёкшие токены, живые сессии не трогать. */
     @Modifying
     @Query("DELETE FROM RefreshTokenEntity rt WHERE rt.user = :user AND rt.expiresAt < :now")
-    void deleteExpiredByUser(@Param("user") UserEntity user, @Param("now") LocalDateTime now);
+    void deleteExpiredByUser(@Param("user") UserEntity user, @Param("now") Instant now);
 }

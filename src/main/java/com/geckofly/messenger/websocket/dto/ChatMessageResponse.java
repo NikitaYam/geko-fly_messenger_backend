@@ -5,7 +5,7 @@ import com.geckofly.messenger.model.dto.user.UserSummary;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,6 +23,6 @@ public class ChatMessageResponse {
     private UserSummary sender;
     private String content;
     private String type;
-    private LocalDateTime createdAt;
+    private Instant createdAt;
     private List<AttachmentDto> attachments;
 }
