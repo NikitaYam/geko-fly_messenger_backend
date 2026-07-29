@@ -58,6 +58,10 @@ public class UserEntity extends BaseEntity implements UserDetails {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
+    /** Мягкое удаление (R10): анонимизированный «тумбстоун», логиниться нельзя. */
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
+
     public boolean isSuperAdmin() {
         return role == UserRole.SUPER_ADMIN;
     }
@@ -87,5 +91,11 @@ public class UserEntity extends BaseEntity implements UserDetails {
     @Override
     public String getUsername() {
         return login;
+    }
+
+    /** Анонимизированный аккаунт отключён — Spring Security не пустит его. */
+    @Override
+    public boolean isEnabled() {
+        return !deleted;
     }
 }

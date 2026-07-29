@@ -3,6 +3,7 @@ target/
 
 ### Секреты — не коммитить ###
 .env
+secrets/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

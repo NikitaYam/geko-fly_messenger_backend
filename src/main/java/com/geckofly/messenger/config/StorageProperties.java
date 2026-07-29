@@ -23,10 +23,16 @@ public class StorageProperties {
     /**
      * Неприкосновенный резерв диска. Загрузка отклоняется (507), если ПОСЛЕ приёма
      * файла свободного места станет меньше — чтобы переполнение не убило Postgres.
-     * 1 ГБ: диск VPS всего 15 ГБ, 10 ГБ блокировали бы загрузки уже при 33% занятости.
+     * Диск VPS всего 15 ГБ, поэтому резерв небольшой.
      */
-    private DataSize minFreeSpace = DataSize.ofGigabytes(1);
+    private DataSize minFreeSpace = DataSize.ofMegabytes(512);
 
     /** Максимальный размер одного файла. Используется в MultipartConfig. */
     private DataSize maxFileSize = DataSize.ofGigabytes(5);
+
+    /** Сколько дней файл ждёт получателей, которые так и не скачали, до принудительной очистки. */
+    private int retentionDays = 7;
+
+    /** Порог аварийной очистки: если свободно меньше — sweep удаляет самые старые файлы независимо от доставки. */
+    private DataSize emergencyFreeSpace = DataSize.ofGigabytes(1);
 }

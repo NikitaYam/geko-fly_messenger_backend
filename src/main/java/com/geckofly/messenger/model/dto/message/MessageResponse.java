@@ -20,4 +20,8 @@ public class MessageResponse {
     private String type;
     private Instant createdAt;
     private List<AttachmentDto> attachments;
+    /** Статус для отправителя (SENT/DELIVERED/READ); null для входящих сообщений. */
+    private String status;
+    private Instant editedAt;
+    private boolean deleted;
 }

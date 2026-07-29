@@ -37,8 +37,15 @@ messenger:
     base-dir: storage
     # Резерв диска: если ПОСЛЕ файла свободного места станет меньше — 507.
     # 1 ГБ, т.к. диск VPS всего 15 ГБ.
-    min-free-space: 1GB
+    min-free-space: 512MB
     max-file-size: 5GB
+    retention-days: 7
+    emergency-free-space: 1GB
+    # Как часто sweep-джоба чистит доставленные/просроченные файлы (ISO-8601 duration).
+    sweep-interval: PT1H
+  firebase:
+    # Путь к service-account JSON для FCM. Пусто → push отключён (R9).
+    credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
 
 logging:
   level:

@@ -1,10 +1,9 @@
 package com.geckofly.messenger.service;
 
-import com.geckofly.messenger.model.entity.ChatEntity;
-import com.geckofly.messenger.model.entity.ChatParticipantEntity;
+import com.geckofly.messenger.model.entity.AttachmentEntity;
+import com.geckofly.messenger.model.entity.MessageEntity;
 import com.geckofly.messenger.model.entity.UserEntity;
-import com.geckofly.messenger.repository.ChatParticipantRepository;
-import com.geckofly.messenger.repository.ChatRepository;
+import com.geckofly.messenger.repository.DeviceTokenRepository;
 import com.geckofly.messenger.repository.MessageRepository;
 import com.geckofly.messenger.repository.RefreshTokenRepository;
 import com.geckofly.messenger.repository.UserRepository;
@@ -12,40 +11,45 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
+/**
+ * Удаление пользователя = анонимизация (R10), а не каскадное стирание.
+ * Сообщения и история чатов остаются целыми (в групповых чатах у друзей не появляется дыр),
+ * но строка превращается в «тумбстоун»: имя «Удалённый пользователь», войти нельзя.
+ * По-настоящему удаляются только личные данные: сессии, токены устройств, загруженные файлы.
+ */
 @Service
 @RequiredArgsConstructor
 public class UserDeletionService {
 
     private final RefreshTokenRepository refreshTokenRepository;
+    private final DeviceTokenRepository deviceTokenRepository;
     private final MessageRepository messageRepository;
-    private final ChatParticipantRepository chatParticipantRepository;
-    private final ChatRepository chatRepository;
     private final UserRepository userRepository;
+    private final FileStorageService fileStorageService;
 
     @Transactional
     public void deleteUserData(UserEntity user) {
+        // 1. Сессии и push-токены — обрубаем немедленно.
         refreshTokenRepository.deleteByUser(user);
+        deviceTokenRepository.deleteByUser(user);
 
-        messageRepository.deleteAll(messageRepository.findBySender(user));
-
-        List<ChatParticipantEntity> memberships = chatParticipantRepository.findByUser(user);
-        Set<ChatEntity> affectedChats = new HashSet<>();
-        for (ChatParticipantEntity membership : memberships) {
-            affectedChats.add(membership.getChat());
-        }
-        chatParticipantRepository.deleteAll(memberships);
-
-        for (ChatEntity chat : affectedChats) {
-            if (chatParticipantRepository.findByChat(chat).isEmpty()) {
-                messageRepository.deleteAll(messageRepository.findByChat(chat));
-                chatRepository.delete(chat);
+        // 2. Файлы, загруженные пользователем, — с диска (личные данные). Сами сообщения остаются.
+        for (MessageEntity message : messageRepository.findBySender(user)) {
+            for (AttachmentEntity attachment : message.getAttachments()) {
+                if (!attachment.isFileDeleted()) {
+                    fileStorageService.deleteChatFile(attachment.getStoredName());
+                    attachment.setFileDeleted(true);
+                }
             }
         }
 
-        userRepository.delete(user);
+        // 3. Анонимизация. Логин делаем уникальным «мёртвым», пароль — невалидным.
+        user.setLogin("deleted_" + user.getUuid());
+        user.setDisplayName("Удалённый пользователь");
+        user.setUserEmail(null);
+        user.setAvatarUrl(null);
+        user.setPasswordHash("DELETED");
+        user.setDeleted(true);
+        userRepository.save(user);
     }
 }

@@ -21,4 +21,6 @@ public class ChatResponse {
     private String lastSenderDisplayName;
     private String lastSenderAvatarUrl;
     private UserSummary otherParticipant;
+    private String avatarUrl;
+    private long unreadCount;
 }

@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -48,6 +49,16 @@ public class GlobalExceptionHandler {
                 HttpStatus.PAYLOAD_TOO_LARGE.value(),
                 "Payload too large",
                 "File exceeds the maximum allowed size"
+        ));
+    }
+
+    // Мл5: битый/непарсируемый JSON в теле запроса — это ошибка клиента (400), не сервера (500).
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleUnreadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(buildResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Malformed request",
+                "Request body is missing or not valid JSON"
         ));
     }
 

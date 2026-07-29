@@ -3,6 +3,7 @@ package com.geckofly.messenger.controller;
 import com.geckofly.messenger.model.dto.file.StoredFile;
 import com.geckofly.messenger.service.FileStorageService;
 import com.geckofly.messenger.service.FileTypeRules;
+import com.geckofly.messenger.service.RateLimitService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -11,8 +12,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.geckofly.messenger.model.entity.UserEntity;
+import com.geckofly.messenger.service.FileRelayService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/files")
@@ -20,10 +26,16 @@ import java.util.Map;
 public class FileController {
 
     private final FileStorageService fileStorageService;
+    private final FileRelayService fileRelayService;
+    private final RateLimitService rateLimitService;
 
     // Загрузка требует аутентификации (SecurityConfig: /api/files/** уже не permitAll).
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, Object>> uploadFile(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<Map<String, Object>> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserEntity currentUser) {
+        // A3: не более 20 загрузок в минуту на пользователя.
+        rateLimitService.check("upload:" + currentUser.getLogin(), 20, Duration.ofMinutes(1));
         StoredFile stored = fileStorageService.storeChatFile(file);
 
         // Форма ответа сохранена как раньше — мобильный клиент завязан на эти поля.
@@ -37,11 +49,11 @@ public class FileController {
 
     // С6: скачивание теперь авторизованное. Утёкшая ссылка не работает для чужих/анонимов.
     @GetMapping("/{fileName}")
-    public ResponseEntity<Resource> getFile(@PathVariable String fileName) {
-        Resource resource = fileStorageService.loadChatFile(fileName);
+    public ResponseEntity<Resource> getFile(@PathVariable String fileName,
+                                            @AuthenticationPrincipal UserEntity currentUser) {
+        Resource resource = fileRelayService.download(fileName, currentUser);
         MediaType mediaType = FileTypeRules.contentType(fileName);
 
-        // Не-картинки/видео отдаём как attachment: браузер скачает, а не исполнит (С5).
         String disposition = FileTypeRules.isInline(FileTypeRules.extension(fileName))
                 ? "inline" : "attachment";
 

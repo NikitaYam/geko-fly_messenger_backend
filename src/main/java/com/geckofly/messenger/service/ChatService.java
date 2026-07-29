@@ -8,6 +8,7 @@ import com.geckofly.messenger.model.entity.*;
 import com.geckofly.messenger.model.enums.ChatType;
 import com.geckofly.messenger.model.enums.UserChatRole;
 import com.geckofly.messenger.repository.*;
+import com.geckofly.messenger.websocket.dto.WsEventType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.geckofly.messenger.model.dto.user.UserSummary;
-
 import com.geckofly.messenger.mapper.UserMapper;
 
 @Service
@@ -32,6 +32,12 @@ public class ChatService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final EventPublisher eventPublisher;
+    private final PresenceService presenceService;
+    private final MessageStatusService messageStatusService;
+
+    /** A8: верхний предел участников группы. */
+    public static final int MAX_GROUP_PARTICIPANTS = 200;
 
     public CreateChatResponse createChat(CreateChatRequest request, UserEntity currentUser) {
         List<String> participantLogins = request.getParticipantLogins();
@@ -56,6 +62,10 @@ public class ChatService {
         if (request.getType() == ChatType.GROUP
                 && (request.getTitle() == null || request.getTitle().isBlank())) {
             throw new IllegalArgumentException("Group chat requires a title");
+        }
+
+        if (request.getType() == ChatType.GROUP && participants.size() > MAX_GROUP_PARTICIPANTS) {
+            throw new IllegalArgumentException("Group is too large (max " + MAX_GROUP_PARTICIPANTS + ")");
         }
 
         if (request.getType() == ChatType.PRIVATE) {
@@ -89,74 +99,91 @@ public class ChatService {
             }
         }
 
+        // П4: real-time «вас добавили в чат» — всем участникам, кроме создателя.
+        // Payload строим под каждого: в приватном чате otherParticipant у каждого свой.
+        for (UserEntity participant : participants) {
+            if (!participant.getLogin().equals(currentUser.getLogin())) {
+                eventPublisher.toUser(participant.getLogin(),
+                        WsEventType.CHAT_CREATED, buildChatResponse(chat, participant));
+            }
+        }
+
         return CreateChatResponse.builder()
                 .message("Chat created successfully")
                 .uuid(chat.getUuid())
                 .build();
     }
 
-        @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     public List<ChatResponse> getChats(UserEntity currentUser) {
-
-        List<ChatParticipantEntity> participations =
-                chatParticipantRepository.findByUser(currentUser);
-
-        return participations.stream()
-                .map(p -> {
-
-                    ChatEntity chat = p.getChat();
-
-                    Optional<MessageEntity> lastMsg =
-                            messageRepository.findTopByChatOrderByCreatedAtDesc(chat);
-
-                    String lastMessagePreview = lastMsg.map(msg -> {
-                        String content = msg.getContent();
-                        if (content != null && !content.isBlank()) {
-                            return content;
-                        }
-                        if (msg.getAttachments() != null && !msg.getAttachments().isEmpty()) {
-                            return "Вложение";
-                        }
-                        return null;
-                    }).orElse(null);
-
-                    UserEntity lastSender = lastMsg.map(MessageEntity::getSender).orElse(null);
-                    String lastSenderDisplay = lastSender != null ? lastSender.getDisplayName() : null;
-
-                    UserSummary otherParticipant = chat.getType() == ChatType.PRIVATE
-                            ? findOtherParticipant(chat, currentUser)
-                            : null;
-
-                    return ChatResponse.builder()
-                            .uuid(chat.getUuid())
-                            .type(chat.getType().name())
-                            .title(chat.getTitle())
-                            .lastMessage(lastMessagePreview)
-                            .lastMessageTime(lastMsg.map(MessageEntity::getCreatedAt).orElse(null))
-                            .lastSenderDisplayName(lastSenderDisplay)
-                            .lastSenderAvatarUrl(null)
-                            .otherParticipant(otherParticipant)
-                            .build();
-                })
+        return chatParticipantRepository.findByUser(currentUser).stream()
+                .map(p -> buildChatResponse(p.getChat(), currentUser))
                 .collect(Collectors.toList());
     }
 
-        private UserSummary findOtherParticipant(ChatEntity chat, UserEntity currentUser) {
+    /** ChatResponse с точки зрения конкретного зрителя (otherParticipant в приватном чате — «второй» для него). */
+    ChatResponse buildChatResponse(ChatEntity chat, UserEntity viewer) {
+        Optional<MessageEntity> lastMsg =
+                messageRepository.findTopByChatOrderByCreatedAtDesc(chat);
+
+        String lastMessagePreview = lastMsg.map(msg -> {
+            String content = msg.getContent();
+            if (content != null && !content.isBlank()) {
+                return content;
+            }
+            if (msg.getAttachments() != null && !msg.getAttachments().isEmpty()) {
+                return "Вложение";
+            }
+            return null;
+        }).orElse(null);
+
+        UserEntity lastSender = lastMsg.map(MessageEntity::getSender).orElse(null);
+        String lastSenderDisplay = lastSender != null ? lastSender.getDisplayName() : null;
+
+        UserSummary otherParticipant = chat.getType() == ChatType.PRIVATE
+                ? findOtherParticipant(chat, viewer)
+                : null;
+
+        return ChatResponse.builder()
+                .uuid(chat.getUuid())
+                .type(chat.getType().name())
+                .title(chat.getTitle())
+                .avatarUrl(chat.getAvatarUrl())
+                .lastMessage(lastMessagePreview)
+                .lastMessageTime(lastMsg.map(MessageEntity::getCreatedAt).orElse(null))
+                .lastSenderDisplayName(lastSenderDisplay)
+                .lastSenderAvatarUrl(null)
+                .otherParticipant(otherParticipant)
+                .unreadCount(messageStatusService.unreadCount(chat, viewer))
+                .build();
+    }
+
+    private UserSummary findOtherParticipant(ChatEntity chat, UserEntity currentUser) {
         return chatParticipantRepository.findByChat(chat).stream()
                 .map(ChatParticipantEntity::getUser)
                 .filter(u -> !u.getId().equals(currentUser.getId()))
                 .findFirst()
-                .map(userMapper::toSummary)
+                .map(u -> {
+                    UserSummary s = userMapper.toSummary(u);
+                    s.setOnline(presenceService.isOnline(u.getLogin()));
+                    return s;
+                })
                 .orElse(null);
     }
 
-        @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     public List<ParticipantResponse> getParticipants(UUID chatUuid, UserEntity currentUser) {
         ChatEntity chat = getChatByUuidOrThrow(chatUuid);
         checkAccess(chat, currentUser);
 
         return chatParticipantRepository.findByChat(chat).stream()
-                .map(p -> userMapper.toParticipantResponse(p.getUser()))
+                .map(p -> {
+                    ParticipantResponse r = userMapper.toParticipantResponse(p.getUser());
+                    r.setOnline(presenceService.isOnline(p.getUser().getLogin()));
+                    r.setChatRole(p.getRole().name());
+                    r.setDeleted(p.getUser().isDeleted());
+                    return r;
+                })
                 .collect(Collectors.toList());
     }
 

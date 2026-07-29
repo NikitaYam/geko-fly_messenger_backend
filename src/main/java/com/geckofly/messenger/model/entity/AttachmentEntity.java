@@ -14,7 +14,7 @@ public class AttachmentEntity extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "message_id", nullable = false)
     private MessageEntity message;
 
@@ -29,4 +29,10 @@ public class AttachmentEntity extends BaseEntity {
 
     @Column(name = "file_size", nullable = false)
     private Long fileSize;
+
+    @Column(name = "stored_name", nullable = false)
+    private String storedName;
+
+    @Column(name = "file_deleted", nullable = false)
+    private boolean fileDeleted = false;
 }

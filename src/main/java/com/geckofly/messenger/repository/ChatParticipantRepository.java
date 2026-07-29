@@ -16,7 +16,18 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
 
     List<ChatParticipantEntity> findByChat(ChatEntity chat);
 
+    java.util.Optional<ChatParticipantEntity> findByChatAndUser(ChatEntity chat, UserEntity user);
+
     boolean existsByChatAndUser(ChatEntity chat, UserEntity user);
+
+    /** Логины всех, кто состоит хотя бы в одном общем чате с user (без самого user). Для рассылки presence. */
+    @Query("""
+            SELECT DISTINCT cp2.user.login
+            FROM ChatParticipantEntity cp1
+            JOIN ChatParticipantEntity cp2 ON cp1.chat = cp2.chat
+            WHERE cp1.user = :user AND cp2.user <> :user AND cp2.user.deleted = false
+            """)
+    List<String> findCoParticipantLogins(@Param("user") UserEntity user);
 
     @Query("""
             SELECT CASE WHEN COUNT(cp1) > 0 THEN true ELSE false END

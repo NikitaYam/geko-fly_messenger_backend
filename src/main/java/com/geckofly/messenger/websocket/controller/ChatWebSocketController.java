@@ -1,6 +1,5 @@
 package com.geckofly.messenger.websocket.controller;
 
-import com.geckofly.messenger.model.entity.MessageEntity;
 import com.geckofly.messenger.model.entity.UserEntity;
 import com.geckofly.messenger.service.MessageService;
 import com.geckofly.messenger.websocket.dto.ChatMessageRequest;
@@ -36,13 +35,13 @@ public class ChatWebSocketController {
             return;
         }
 
-        MessageEntity saved = messageService.saveMessage(
+        // save + broadcast в одной транзакции (P2: безопасно для LAZY-связей).
+        messageService.handleWebSocketMessage(
                 request.getChatUuid(),
                 request.getContent(),
                 request.getType(),
                 request.getAttachments(),
                 sender
         );
-        messageService.broadcastMessage(saved);
     }
 }

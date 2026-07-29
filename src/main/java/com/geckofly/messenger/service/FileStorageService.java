@@ -84,6 +84,15 @@ public class FileStorageService {
         }
     }
 
+    public long usableBytes() {
+        try{
+            return Files.getFileStore(filesDir).getUsableSpace();
+        } catch (IOException e) {
+            log.warn("Cannot read usable space : {}", e.getMessage());
+            return Long.MAX_VALUE;
+        }
+    }
+
     private StoredFile save(MultipartFile file, String original, String ext, Path dir, String urlPrefix) {
         ensureFreeSpace(file.getSize());
         String storedName = UUID.randomUUID() + "." + ext;

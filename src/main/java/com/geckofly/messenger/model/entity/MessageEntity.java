@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -29,11 +30,11 @@ public class MessageEntity extends BaseEntity {
     @Column(name = "uuid", nullable = false, unique = true, updatable = false)
     private UUID uuid;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chat_id", nullable = false)
     private ChatEntity chat;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sender_id", nullable = false)
     private UserEntity sender;
 
@@ -43,6 +44,14 @@ public class MessageEntity extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false)
     private MessageType type;
+
+    /** Когда отредактировано (R7); null — не редактировалось. */
+    @Column(name = "edited_at")
+    private Instant editedAt;
+
+    /** Мягкое удаление (R7): true — контент затёрт, показываем «сообщение удалено». */
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
 
     @OneToMany(mappedBy = "message", cascade = CascadeType.ALL, orphanRemoval = true)
     private java.util.List<AttachmentEntity> attachments = new java.util.ArrayList<>();

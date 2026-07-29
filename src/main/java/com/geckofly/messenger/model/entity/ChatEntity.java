@@ -18,8 +18,8 @@ import jakarta.persistence.*;
         @Index(name = "idx_chats_uuid", columnList = "uuid")
     }
 )
-public class ChatEntity extends BaseEntity{
-    
+public class ChatEntity extends BaseEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,5 +35,7 @@ public class ChatEntity extends BaseEntity{
     @Column(nullable = true)
     private String title;
 
-
+    /** Аватар группового чата (R6). У приватных чатов null — показываем аватар собеседника. */
+    @Column(name = "avatar_url")
+    private String avatarUrl;
 }

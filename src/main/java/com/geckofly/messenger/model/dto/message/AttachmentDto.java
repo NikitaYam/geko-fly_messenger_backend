@@ -16,4 +16,5 @@ public class AttachmentDto {
     private String fileName;
     private String fileType;
     private Long fileSize;
+    private Boolean fileDeleted;
 }
