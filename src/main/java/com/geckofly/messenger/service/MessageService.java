@@ -273,12 +273,10 @@ public class MessageService {
             if (!recipient.getId().equals(sender.getId()) && !presenceService.isOnline(recipient.getLogin())) {
                 String body = (saved.getContent() != null && !saved.getContent().isBlank())
                         ? saved.getContent() : "Вложение";
-                pushService.pushToUser(recipient, Map.of(
+                pushService.pushToUser(recipient, sender.getDisplayName(), body, Map.of(
                         "type", "MESSAGE_NEW",
                         "chatUuid", saved.getChat().getUuid().toString(),
-                        "messageUuid", saved.getUuid().toString(),
-                        "title", sender.getDisplayName(),
-                        "body", body));
+                        "messageUuid", saved.getUuid().toString()));
             }
         }
     }

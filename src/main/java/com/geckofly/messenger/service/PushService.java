@@ -3,10 +3,12 @@ package com.geckofly.messenger.service;
 import com.geckofly.messenger.model.entity.DeviceTokenEntity;
 import com.geckofly.messenger.model.entity.UserEntity;
 import com.geckofly.messenger.repository.DeviceTokenRepository;
+import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
+import com.google.firebase.messaging.Notification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -19,7 +21,13 @@ import java.util.Map;
 /**
  * Отправка push через FCM (R9). Если Firebase не сконфигурирован (бин FirebaseMessaging
  * отсутствует) — методы тихо ничего не делают. Мёртвые токены (UNREGISTERED) удаляются.
- * Data-message: клиент сам решает, как показать (учитывая настройки звука/бейджа).
+ *
+ * Сообщение шлётся как notification + data одновременно:
+ *  - notification (title/body) — Android сам покажет уведомление, когда приложение
+ *    в фоне или закрыто; без этого блока системе нечего показывать, пока приложение
+ *    не запущено, а data-only сообщения таким адресатам системой не отрисовываются;
+ *  - data — маршрутная нагрузка (chatUuid/messageUuid), чтобы по тапу открыть нужный чат;
+ *  - AndroidConfig.Priority.HIGH — просит FCM доставить немедленно, а не отложить.
  */
 @Slf4j
 @Service
@@ -30,7 +38,7 @@ public class PushService {
     private final DeviceTokenRepository deviceTokenRepository;
 
     @Transactional
-    public void pushToUser(UserEntity user, Map<String, String> data) {
+    public void pushToUser(UserEntity user, String title, String body, Map<String, String> data) {
         FirebaseMessaging messaging = firebaseMessagingProvider.getIfAvailable();
         if (messaging == null) {
             return; // push отключён
@@ -40,7 +48,14 @@ public class PushService {
             try {
                 messaging.send(Message.builder()
                         .setToken(token.getToken())
+                        .setNotification(Notification.builder()
+                                .setTitle(title)
+                                .setBody(body)
+                                .build())
                         .putAllData(data)
+                        .setAndroidConfig(AndroidConfig.builder()
+                                .setPriority(AndroidConfig.Priority.HIGH)
+                                .build())
                         .build());
             } catch (FirebaseMessagingException e) {
                 if (e.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED) {
