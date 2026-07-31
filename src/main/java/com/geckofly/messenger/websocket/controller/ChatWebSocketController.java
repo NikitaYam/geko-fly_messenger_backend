@@ -59,6 +59,7 @@ public class ChatWebSocketController {
             log.error("chat.active called without authenticated user in session");
             return;
         }
+        log.info("chat.active received: user={} chatUuid={}", user.getLogin(), request.getChatUuid());
         activeChatService.setActiveChat(user.getLogin(), request.getChatUuid());
     }
 }
