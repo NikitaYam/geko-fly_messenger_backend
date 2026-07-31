@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -38,6 +39,8 @@ public class ChatMembershipService {
     private final ChatService chatService;
     private final EventPublisher eventPublisher;
     private final FileStorageService fileStorageService;
+    private final PresenceService presenceService;
+    private final PushService pushService;
 
     public void addParticipant(UUID chatUuid, String login, UserEntity actor) {
         ChatEntity chat = chatService.getChatByUuidOrThrow(chatUuid);
@@ -59,6 +62,13 @@ public class ChatMembershipService {
         // Новичку — CHAT_CREATED (чат появляется в его списке), остальным — PARTICIPANT_ADDED.
         eventPublisher.toUser(user.getLogin(), WsEventType.CHAT_CREATED, chatService.buildChatResponse(chat, user));
         notifyOthers(chat, user.getLogin(), WsEventType.PARTICIPANT_ADDED, payload(chat, user));
+
+        if (!presenceService.isOnline(user.getLogin())){
+            String title = chat.getTitle() != null ? chat.getTitle() : "Новая группа";
+            pushService.pushToUser(user, title, "Вы добавлены в группу", null, Map.of(
+                "type", "PARTICIPANT_ADDED",
+                "chatUuid", chat.getUuid().toString()));
+        }
     }
 
     public void removeParticipant(UUID chatUuid, UUID userUuid, UserEntity actor) {
