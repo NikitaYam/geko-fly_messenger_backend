@@ -2,6 +2,7 @@ package com.geckofly.messenger.websocket.event;
 
 import com.geckofly.messenger.model.entity.UserEntity;
 import com.geckofly.messenger.repository.ChatParticipantRepository;
+import com.geckofly.messenger.service.ActiveChatService;
 import com.geckofly.messenger.service.EventPublisher;
 import com.geckofly.messenger.service.PresenceService;
 import com.geckofly.messenger.websocket.dto.PresencePayload;
@@ -27,6 +28,7 @@ public class WebSocketEventListener {
 
     private final ChatParticipantRepository chatParticipantRepository;
     private final PresenceService presenceService;
+    private final ActiveChatService activeChatService;
     private final EventPublisher eventPublisher;
 
     @EventListener
@@ -45,6 +47,7 @@ public class WebSocketEventListener {
         // Офлайн шлём, только если других сессий не осталось.
         if (user != null && !presenceService.hasOtherSession(user.getLogin(), event.getSessionId())) {
             log.debug("WS disconnected (last session): {}", user.getLogin());
+            activeChatService.clear(user.getLogin());
             broadcastPresence(user, false);
         }
     }

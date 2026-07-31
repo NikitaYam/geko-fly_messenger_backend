@@ -50,7 +50,7 @@ public class MessageService {
     private final EventPublisher eventPublisher;
     private final MessageStatusService messageStatusService;
     private final FileStorageService fileStorageService;
-    private final PresenceService presenceService;
+    private final ActiveChatService activeChatService;
     private final PushService pushService;
     private final RateLimitService rateLimitService;
 
@@ -274,11 +274,15 @@ public class MessageService {
             // когда мобильный клиент переедет на /queue/events.
             eventPublisher.toUser(participant.getUser().getLogin(), WsEventType.MESSAGE_NEW, response);
 
-            // Push — только офлайн-получателям (онлайн уже получили по WebSocket)
-            // и только если получатель не заглушил именно этот чат.
+            // Push — всегда, КРОМЕ случая, когда получатель прямо сейчас смотрит
+            // именно этот чат (там сообщение и так видно по WebSocket) или
+            // заглушил этот чат. Раньше гейтом было "получатель вообще онлайн" —
+            // из-за этого, пока приложение открыто хоть на списке чатов, push не
+            // приходил вообще ни по одному чату. Теперь по всем чатам, кроме
+            // открытого на экране прямо сейчас.
             UserEntity recipient = participant.getUser();
             if (!recipient.getId().equals(sender.getId())
-                    && !presenceService.isOnline(recipient.getLogin())
+                    && !activeChatService.isViewing(recipient.getLogin(), saved.getChat().getUuid())
                     && !participant.isMuted()) {
                 String body = (saved.getContent() != null && !saved.getContent().isBlank())
                         ? saved.getContent() : "Вложение";

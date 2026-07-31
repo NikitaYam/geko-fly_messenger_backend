@@ -8,13 +8,13 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
-import com.google.firebase.messaging.Notification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,12 +22,13 @@ import java.util.Map;
  * Отправка push через FCM (R9). Если Firebase не сконфигурирован (бин FirebaseMessaging
  * отсутствует) — методы тихо ничего не делают. Мёртвые токены (UNREGISTERED) удаляются.
  *
- * Сообщение шлётся как notification + data одновременно:
- *  - notification (title/body) — Android сам покажет уведомление, когда приложение
- *    в фоне или закрыто; без этого блока системе нечего показывать, пока приложение
- *    не запущено, а data-only сообщения таким адресатам системой не отрисовываются;
- *  - data — маршрутная нагрузка (chatUuid/messageUuid), чтобы по тапу открыть нужный чат;
- *  - AndroidConfig.Priority.HIGH — просит FCM доставить немедленно, а не отложить.
+ * Сообщение шлётся ТОЛЬКО как data (без notification-блока) — иначе Android рисует
+ * уведомление сам, наш код в этот момент не участвует и не может потом ни объединить
+ * несколько сообщений одного чата в одно уведомление, ни снять его при прочтении
+ * (у нас просто нет ID того, что нарисовала система). При data-only это делает
+ * PushService на телефоне (см. push_service.dart) — тем же способом, каким устроены
+ * Telegram/WhatsApp. AndroidConfig.Priority.HIGH — чтобы фоновый обработчик успел
+ * отработать и показать уведомление даже при закрытом приложении.
  */
 @Slf4j
 @Service
@@ -43,19 +44,18 @@ public class PushService {
         if (messaging == null) {
             return; // push отключён
         }
-        Notification.Builder notification = Notification.builder()
-                .setTitle(title)
-                .setBody(body);
+        Map<String, String> fullData = new HashMap<>(data);
+        fullData.put("title", title);
+        fullData.put("body", body);
         if (imageUrl != null && !imageUrl.isBlank()) {
-            notification.setImage(imageUrl);
+            fullData.put("imageUrl", imageUrl);
         }
         List<DeviceTokenEntity> tokens = deviceTokenRepository.findByUser(user);
         for (DeviceTokenEntity token : tokens) {
             try {
                 messaging.send(Message.builder()
                         .setToken(token.getToken())
-                        .setNotification(notification.build())
-                        .putAllData(data)
+                        .putAllData(fullData)
                         .setAndroidConfig(AndroidConfig.builder()
                                 .setPriority(AndroidConfig.Priority.HIGH)
                                 .build())

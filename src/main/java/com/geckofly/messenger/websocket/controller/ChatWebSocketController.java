@@ -1,7 +1,9 @@
 package com.geckofly.messenger.websocket.controller;
 
 import com.geckofly.messenger.model.entity.UserEntity;
+import com.geckofly.messenger.service.ActiveChatService;
 import com.geckofly.messenger.service.MessageService;
+import com.geckofly.messenger.websocket.dto.ActiveChatRequest;
 import com.geckofly.messenger.websocket.dto.ChatMessageRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Controller;
 public class ChatWebSocketController {
 
     private final MessageService messageService;
+    private final ActiveChatService activeChatService;
 
     @MessageMapping("/chat.sendMessage")
     public void sendMessage(@Payload ChatMessageRequest request,
@@ -43,5 +46,19 @@ public class ChatWebSocketController {
                 request.getAttachments(),
                 sender
         );
+    }
+
+    // Клиент шлёт при открытии/закрытии экрана чата (chatUuid=null — закрыт).
+    // Пока чат "активен" — push по нему не шлём (см. MessageService.broadcastMessage),
+    // сообщение и так видно на экране по этому же WS-соединению.
+    @MessageMapping("/chat.active")
+    public void setActiveChat(@Payload ActiveChatRequest request,
+                              SimpMessageHeaderAccessor accessor) {
+        UserEntity user = (UserEntity) accessor.getSessionAttributes().get("user");
+        if (user == null) {
+            log.error("chat.active called without authenticated user in session");
+            return;
+        }
+        activeChatService.setActiveChat(user.getLogin(), request.getChatUuid());
     }
 }
