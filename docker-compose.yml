@@ -33,6 +33,9 @@ services:
       # который монтируется ниже из secrets/ (в .gitignore). Пусто/файла нет →
       # FirebaseConfig тихо отключает push (см. его комментарий).
       FIREBASE_CREDENTIALS_PATH: /app/secrets/firebase-service-account.json
+      # Не секрет (публичный адрес сервера) — нужен, чтобы вложить абсолютный
+      # URL аватара в push-уведомление (см. MessageService.resolveAvatarUrl).
+      MESSENGER_PUBLIC_URL: https://45.143.203.241
     volumes:
       - app_storage:/app/storage
       - ./secrets:/app/secrets:ro

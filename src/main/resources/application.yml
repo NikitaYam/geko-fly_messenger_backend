@@ -46,6 +46,10 @@ messenger:
   firebase:
     # Путь к service-account JSON для FCM. Пусто → push отключён (R9).
     credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+  # Публичный адрес сервера — чтобы превратить относительный /api/uploads/avatars/...
+  # в абсолютный URL для аватара в push-уведомлении (FCM image требует полный URL).
+  # Пусто → push просто идёт без картинки, ничего не ломается.
+  public-url: ${MESSENGER_PUBLIC_URL:}
 
 logging:
   level:

@@ -38,20 +38,23 @@ public class PushService {
     private final DeviceTokenRepository deviceTokenRepository;
 
     @Transactional
-    public void pushToUser(UserEntity user, String title, String body, Map<String, String> data) {
+    public void pushToUser(UserEntity user, String title, String body, String imageUrl, Map<String, String> data) {
         FirebaseMessaging messaging = firebaseMessagingProvider.getIfAvailable();
         if (messaging == null) {
             return; // push отключён
+        }
+        Notification.Builder notification = Notification.builder()
+                .setTitle(title)
+                .setBody(body);
+        if (imageUrl != null && !imageUrl.isBlank()) {
+            notification.setImage(imageUrl);
         }
         List<DeviceTokenEntity> tokens = deviceTokenRepository.findByUser(user);
         for (DeviceTokenEntity token : tokens) {
             try {
                 messaging.send(Message.builder()
                         .setToken(token.getToken())
-                        .setNotification(Notification.builder()
-                                .setTitle(title)
-                                .setBody(body)
-                                .build())
+                        .setNotification(notification.build())
                         .putAllData(data)
                         .setAndroidConfig(AndroidConfig.builder()
                                 .setPriority(AndroidConfig.Priority.HIGH)

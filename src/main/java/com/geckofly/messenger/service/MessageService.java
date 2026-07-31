@@ -20,6 +20,7 @@ import com.geckofly.messenger.websocket.dto.WsEventType;
 import com.geckofly.messenger.mapper.UserMapper;
 import com.geckofly.messenger.util.UploadPaths;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -52,6 +53,11 @@ public class MessageService {
     private final PresenceService presenceService;
     private final PushService pushService;
     private final RateLimitService rateLimitService;
+
+    // Для превращения относительного /api/uploads/avatars/... в абсолютный URL
+    // в push-уведомлении (FCM image требует полный адрес). Пусто — картинки не будет.
+    @Value("${messenger.public-url:}")
+    private String publicUrl;
 
     public SendMessageResponse sendMessage(SendMessageRequest request, UserEntity currentUser) {
         // A3: не более 30 сообщений за 10 секунд на пользователя.
@@ -273,12 +279,21 @@ public class MessageService {
             if (!recipient.getId().equals(sender.getId()) && !presenceService.isOnline(recipient.getLogin())) {
                 String body = (saved.getContent() != null && !saved.getContent().isBlank())
                         ? saved.getContent() : "Вложение";
-                pushService.pushToUser(recipient, sender.getDisplayName(), body, Map.of(
+                pushService.pushToUser(recipient, sender.getDisplayName(), body, resolveAvatarUrl(sender), Map.of(
                         "type", "MESSAGE_NEW",
                         "chatUuid", saved.getChat().getUuid().toString(),
                         "messageUuid", saved.getUuid().toString()));
             }
         }
+    }
+
+    /** null, если аватара нет или публичный адрес сервера не настроен (messenger.public-url). */
+    private String resolveAvatarUrl(UserEntity user) {
+        String avatarUrl = user.getAvatarUrl();
+        if (avatarUrl == null || publicUrl.isBlank()) {
+            return null;
+        }
+        return publicUrl + avatarUrl;
     }
 
     private AttachmentDto toAttachmentDto(AttachmentEntity attachment) {
