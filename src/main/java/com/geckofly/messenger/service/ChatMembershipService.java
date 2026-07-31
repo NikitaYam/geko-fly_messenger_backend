@@ -135,6 +135,17 @@ public class ChatMembershipService {
         }
     }
 
+    // Личное заглушение уведомлений — доступно в любом чате (не только группа),
+    // без требования роли ADMIN: это настройка самого себя, не управление чатом.
+    public void setMute(UUID chatUuid, boolean muted, UserEntity actor) {
+        ChatEntity chat = chatService.getChatByUuidOrThrow(chatUuid);
+        ChatParticipantEntity cp = participantRepository.findByChatAndUser(chat, actor)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a participant"));
+
+        cp.setMuted(muted);
+        participantRepository.save(cp);
+    }
+
     // --- внутреннее ---
 
     private void removeMember(ChatEntity chat, ChatParticipantEntity cp) {

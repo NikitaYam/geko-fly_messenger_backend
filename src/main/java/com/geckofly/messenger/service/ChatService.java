@@ -144,6 +144,10 @@ public class ChatService {
                 ? findOtherParticipant(chat, viewer)
                 : null;
 
+        boolean muted = chatParticipantRepository.findByChatAndUser(chat, viewer)
+                .map(ChatParticipantEntity::isMuted)
+                .orElse(false);
+
         return ChatResponse.builder()
                 .uuid(chat.getUuid())
                 .type(chat.getType().name())
@@ -155,6 +159,7 @@ public class ChatService {
                 .lastSenderAvatarUrl(null)
                 .otherParticipant(otherParticipant)
                 .unreadCount(messageStatusService.unreadCount(chat, viewer))
+                .muted(muted)
                 .build();
     }
 

@@ -274,9 +274,12 @@ public class MessageService {
             // когда мобильный клиент переедет на /queue/events.
             eventPublisher.toUser(participant.getUser().getLogin(), WsEventType.MESSAGE_NEW, response);
 
-            // Push — только офлайн-получателям (онлайн уже получили по WebSocket).
+            // Push — только офлайн-получателям (онлайн уже получили по WebSocket)
+            // и только если получатель не заглушил именно этот чат.
             UserEntity recipient = participant.getUser();
-            if (!recipient.getId().equals(sender.getId()) && !presenceService.isOnline(recipient.getLogin())) {
+            if (!recipient.getId().equals(sender.getId())
+                    && !presenceService.isOnline(recipient.getLogin())
+                    && !participant.isMuted()) {
                 String body = (saved.getContent() != null && !saved.getContent().isBlank())
                         ? saved.getContent() : "Вложение";
                 pushService.pushToUser(recipient, sender.getDisplayName(), body, resolveAvatarUrl(sender), Map.of(

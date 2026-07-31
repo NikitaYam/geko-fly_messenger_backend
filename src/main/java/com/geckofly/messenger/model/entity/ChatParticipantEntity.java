@@ -41,4 +41,8 @@ public class ChatParticipantEntity extends BaseEntity {
 
     @Column(name = "joined_at", nullable = false)
     private Instant joinedAt;
+
+    // Личная настройка: не слать push по этому чату. На других участников не влияет.
+    @Column(nullable = false)
+    private boolean muted;
 }

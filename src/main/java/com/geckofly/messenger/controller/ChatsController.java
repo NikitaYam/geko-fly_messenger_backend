@@ -5,6 +5,7 @@ import com.geckofly.messenger.model.dto.chat.ChangeChatRoleRequest;
 import com.geckofly.messenger.model.dto.chat.ChatResponse;
 import com.geckofly.messenger.model.dto.chat.CreateChatRequest;
 import com.geckofly.messenger.model.dto.chat.CreateChatResponse;
+import com.geckofly.messenger.model.dto.chat.MuteChatRequest;
 import com.geckofly.messenger.model.dto.chat.UpdateChatRequest;
 import com.geckofly.messenger.model.dto.message.MarkReadRequest;
 import com.geckofly.messenger.model.dto.message.MessageResponse;
@@ -111,6 +112,16 @@ public class ChatsController {
             @Valid @RequestBody UpdateChatRequest request,
             @AuthenticationPrincipal UserEntity currentUser) {
         return ResponseEntity.ok(chatMembershipService.updateChat(chatUuid, request, currentUser));
+    }
+
+    // Личное заглушение push по этому чату — доступно любому участнику, не влияет на других.
+    @PatchMapping("/{chatUuid}/mute")
+    public ResponseEntity<Void> setMute(
+            @PathVariable UUID chatUuid,
+            @Valid @RequestBody MuteChatRequest request,
+            @AuthenticationPrincipal UserEntity currentUser) {
+        chatMembershipService.setMute(chatUuid, request.getMuted(), currentUser);
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{chatUuid}/participants/{userUuid}/role")

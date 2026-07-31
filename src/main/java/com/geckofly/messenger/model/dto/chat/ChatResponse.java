@@ -23,4 +23,5 @@ public class ChatResponse {
     private UserSummary otherParticipant;
     private String avatarUrl;
     private long unreadCount;
+    private boolean muted;
 }
