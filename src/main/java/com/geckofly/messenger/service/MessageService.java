@@ -20,6 +20,7 @@ import com.geckofly.messenger.websocket.dto.WsEventType;
 import com.geckofly.messenger.mapper.UserMapper;
 import com.geckofly.messenger.util.UploadPaths;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +38,7 @@ import java.util.UUID;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -281,9 +283,12 @@ public class MessageService {
             // приходил вообще ни по одному чату. Теперь по всем чатам, кроме
             // открытого на экране прямо сейчас.
             UserEntity recipient = participant.getUser();
-            if (!recipient.getId().equals(sender.getId())
-                    && !activeChatService.isViewing(recipient.getLogin(), saved.getChat().getUuid())
-                    && !participant.isMuted()) {
+            boolean isSelf = recipient.getId().equals(sender.getId());
+            boolean viewingThisChat = activeChatService.isViewing(recipient.getLogin(), saved.getChat().getUuid());
+            boolean shouldPush = !isSelf && !viewingThisChat && !participant.isMuted();
+            log.info("push decision for {}: self={} viewingThisChat={} muted={} -> send={}",
+                    recipient.getLogin(), isSelf, viewingThisChat, participant.isMuted(), shouldPush);
+            if (shouldPush) {
                 String body = (saved.getContent() != null && !saved.getContent().isBlank())
                         ? saved.getContent() : "Вложение";
                 pushService.pushToUser(recipient, sender.getDisplayName(), body, resolveAvatarUrl(sender), Map.of(
