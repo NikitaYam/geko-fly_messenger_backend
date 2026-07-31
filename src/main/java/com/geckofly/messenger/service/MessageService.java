@@ -289,8 +289,10 @@ public class MessageService {
             log.info("push decision for {}: self={} viewingThisChat={} muted={} -> send={}",
                     recipient.getLogin(), isSelf, viewingThisChat, participant.isMuted(), shouldPush);
             if (shouldPush) {
-                String body = (saved.getContent() != null && !saved.getContent().isBlank())
-                        ? saved.getContent() : "Вложение";
+                                String body = recipient.isHidePushPreviews()
+                        ? "Новое сообщение"
+                        : (saved.getContent() != null && !saved.getContent().isBlank())
+                                ? saved.getContent() : "Вложение";
                 pushService.pushToUser(recipient, sender.getDisplayName(), body, resolveAvatarUrl(sender), Map.of(
                         "type", "MESSAGE_NEW",
                         "chatUuid", saved.getChat().getUuid().toString(),

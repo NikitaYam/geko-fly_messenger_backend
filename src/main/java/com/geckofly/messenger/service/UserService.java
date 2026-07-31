@@ -78,6 +78,12 @@ public class UserService {
             currentUser.setAvatarUrl(avatar);
             changed = true;
         }
+
+        if (request.getHidePushPreviews() !=null){
+            currentUser.setHidePushPreviews(request.getHidePushPreviews());
+            changed = true;
+        }
+
         if (!changed) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No fields to update");
         }

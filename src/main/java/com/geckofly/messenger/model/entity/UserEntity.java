@@ -58,6 +58,9 @@ public class UserEntity extends BaseEntity implements UserDetails {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
+    @Column(name = "hide_push_previews", nullable = false)
+    private boolean hidePushPreviews = false;
+
     /** Мягкое удаление (R10): анонимизированный «тумбстоун», логиниться нельзя. */
     @Column(name = "deleted", nullable = false)
     private boolean deleted = false;

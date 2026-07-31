@@ -17,5 +17,7 @@ public class UpdateUserProfileRequest {
     private String email;
 
     @Size(max=512)
-    private String avatarUrl; 
+    private String avatarUrl;
+
+    private Boolean hidePushPreviews;
 }

@@ -26,6 +26,7 @@ public class UserMapper {
             .email(user.getUserEmail())
             .role(user.getRole())
             .avatarUrl(user.getAvatarUrl())
+            .hidePushPreviews(user.isHidePushPreviews())
             .build();
     }
 
