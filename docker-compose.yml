@@ -29,8 +29,13 @@ services:
       ADMIN_LOGIN: ${ADMIN_LOGIN:?ADMIN_LOGIN is required - define it in .env}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required - define it in .env}
       ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Administrator}
+      # R9: путь ВНУТРИ контейнера — не секрет сам по себе, секрет это файл,
+      # который монтируется ниже из secrets/ (в .gitignore). Пусто/файла нет →
+      # FirebaseConfig тихо отключает push (см. его комментарий).
+      FIREBASE_CREDENTIALS_PATH: /app/secrets/firebase-service-account.json
     volumes:
       - app_storage:/app/storage
+      - ./secrets:/app/secrets:ro
     depends_on:
       db:
         condition: service_healthy
